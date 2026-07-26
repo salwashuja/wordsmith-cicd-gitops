@@ -1,0 +1,55 @@
+# Docker
+# Build and push an image to Azure Container Registry
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+ paths:
+   include:
+     - api/**
+
+resources:
+- repo: self
+
+variables:
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: 'wordsmith_acr'
+  imageRepository: 'api'
+  containerRegistry: 'wordsmith.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/api/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: BuildandPush
+  displayName: Build and Push
+  jobs:
+  - job: BuildandPush
+    displayName: Build and Push
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to ACR
+      inputs:
+        containerRegistry: '$(dockerRegistryServiceConnection)'
+        repository: '$(imageRepository)'
+        command: 'buildAndPush'
+        Dockerfile: 'api/Dockerfile'
+        tags: '$(tag)'
+
+- stage: 
+  displayName: update manifest
+  jobs:
+  - job: update
+    displayName: update manifest
+    steps:
+    - task: ShellScript@2
+      inputs:
+        scriptPath: 'scripts/update-k8smanifest.sh'
+        args: 'api $(imageRepository) $(tag)'
+
+      env:
+        PAT_TOKEN: $(PAT_TOKEN)
+
